@@ -144,10 +144,16 @@ def srad_filter(image, iterations=10, kappa=30, gamma=0.1):
 def wiener_filter(image, kernel_size=7):
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    filtered_image = scipy_wiener(image, (kernel_size, kernel_size))
+        
+    image_blurred = cv2.GaussianBlur(image, (5, 5), 0)
     
-    filtered_image = (np.clip(filtered_image, 0, 255)).astype(np.uint8) 
+    filtered_image = scipy_wiener(image_blurred, (kernel_size, kernel_size))
+    
+    filtered_image = np.nan_to_num(filtered_image, nan=0.0, posinf=255, neginf=0)
+    filtered_image = np.clip(filtered_image, 0, 255).astype(np.uint8)
+    
+    ## Temp fix
+    filtered_image[image_blurred <= 20] = 0
     
     return filtered_image
 
