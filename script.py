@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
+from scipy.signal import wiener as scipy_wiener
 
 image_dir = './dataset/images'
 
@@ -42,10 +43,27 @@ def resizeImage(img):
 def preprocess_image(image):
     return cv2.GaussianBlur(image, (7, 7), 0)
 
+# def segment_image(image):
+#     gray_img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+#     _, binary_img = cv2.threshold(gray_img, 100, 255, cv2.THRESH_BINARY)
+#     return binary_img
+
+
 def segment_image(image):
-    gray_img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _, binary_img = cv2.threshold(gray_img, 100, 255, cv2.THRESH_BINARY)
-    return binary_img
+    # Check if the image is already single-channel (grayscale/binary)
+    if len(image.shape) == 3:  # Image is colored (BGR)
+        gray_img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray_img = image  # Image is already grayscale or binary
+
+    # Continue with segmentation logic
+    # (Add your specific segmentation steps here as required)
+    
+    # Example: Assuming some thresholding or further processing follows
+    # _, segmented_img = cv2.threshold(gray_img, 127, 255, cv2.THRESH_BINARY)
+    segmented_img = gray_img  # Replace this with the actual segmentation step if different
+
+    return segmented_img
 
 def apply_convex_hull(image):
     contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -95,3 +113,95 @@ def fetus_height(femur_length):
     femur_length_in_cm = ((femur_length/image_dpi)*2.54)
     fetus_height = 6.18 + 0.59*femur_length_in_cm*10
     return fetus_height, femur_length_in_cm
+
+def nafsm_filter(image, threshold=25):
+    if len(image.shape) == 3:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    img_filtered = image.copy()
+    rows, cols = img_filtered.shape
+    window_size = 3
+    
+    # Traverse the image
+    for i in range(1, rows - 1):
+        for j in range(1, cols - 1):
+            window = img_filtered[i-1:i+2, j-1:j+2].flatten()
+            median_val = np.median(window)
+            if abs(img_filtered[i, j] - median_val) > threshold:
+                img_filtered[i, j] = median_val
+    
+    return img_filtered
+
+def srad_filter(image, iterations=10, kappa=30, gamma=0.1):
+    img = image.astype('float32')
+    for _ in range(iterations):
+        # gradients
+        delta_north = np.roll(img, -1, axis=0) - img
+        delta_south = np.roll(img, 1, axis=0) - img
+        delta_east = np.roll(img, -1, axis=1) - img
+        delta_west = np.roll(img, 1, axis=1) - img
+
+        # diffusion coefficients based on gradients
+        c_north = np.exp(-(delta_north/kappa)**2)
+        c_south = np.exp(-(delta_south/kappa)**2)
+        c_east = np.exp(-(delta_east/kappa)**2)
+        c_west = np.exp(-(delta_west/kappa)**2)
+
+        # apply diffusion
+        img += gamma * (c_north * delta_north + c_south * delta_south +
+                        c_east * delta_east + c_west * delta_west)
+    return np.clip(img, 0, 255).astype('uint8')
+
+def wiener_filter(image, kernel_size=7):
+    if len(image.shape) == 3:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    filtered_image = scipy_wiener(image, (kernel_size, kernel_size))
+    
+    filtered_image = np.uint8(np.clip(filtered_image, 0, 255))
+    
+    return filtered_image
+
+def adaptive_median_filter(image, kernel_size=3, max_kernel_size=7):
+    if len(image.shape) == 3:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    rows, cols = image.shape
+
+    padded_image = np.pad(image, ((max_kernel_size // 2, max_kernel_size // 2), 
+                                  (max_kernel_size // 2, max_kernel_size // 2)), 
+                          mode='constant', constant_values=0)
+
+    img_filtered = np.copy(image)
+
+    for i in range(rows):
+        for j in range(cols):
+            kernel_size = 3 
+            while kernel_size <= max_kernel_size:
+                half_size = kernel_size // 2
+                window = padded_image[i:i+kernel_size, j:j+kernel_size]
+
+                min_val = np.min(window)
+                max_val = np.max(window)
+                median_val = np.median(window)
+
+                # adaptive median filter logic
+                if min_val < median_val < max_val:
+                    img_filtered[i, j] = median_val
+                    break
+                else:
+                    kernel_size += 2
+
+    return img_filtered
+
+def hybrid_filter_p1(image):
+    # NAFSM
+    image = nafsm_filter(image)
+    # SRAD
+    image = srad_filter(image)
+    return image
+
+def cal_gest(femur_length):
+    ga= 0.262**(2)*(femur_length) + 2*(femur_length)+11.5
+    return ga
+
