@@ -2,7 +2,7 @@ import streamlit as st
 import cv2
 import os
 import numpy as np
-from script import adaptive_median_filter, hybrid_filter_p1, load_images, nafsm_filter, resizeImage, preprocess_image, segment_image, apply_convex_hull, extract_femur_length, fetus_height, srad_filter, wiener_filter,cal_gest
+from script import adaptive_median_filter, hybrid_filter_p1, load_images, nafsm_filter, resizeImage, gaussian_filter, segment_image, apply_convex_hull, extract_femur_length, fetus_height, srad_filter, wiener_filter,cal_gest
 
 image_dir = './dataset/images'
 path = './results'
@@ -19,10 +19,11 @@ with st.container():
     col1.image(selected_image, caption="Original Image", width=512)
 
 resized_image = resizeImage(selected_image)
-# preprocessed_img = preprocess_image(resized_image)
+
+filtered_image = resized_image.copy()
 
 st.subheader("Select a Noise Reduction Filter")
-filter_choice = st.selectbox("Choose a filter", ["None","Gaussian Filter","NAFSM Filter", "SRAD Filter","Wiener Filter", "Adaptive Median Filter", "Hybrid Filter Part 1"])
+filter_choice = st.selectbox("Choose a filter", ["Gaussian Filter","NAFSM Filter", "SRAD Filter","Wiener Filter", "Adaptive Median Filter", "Hybrid Filter NAFSM+SRAD"])
 
 # Apply the selected filter
 if filter_choice == "NAFSM Filter":
@@ -48,31 +49,28 @@ elif filter_choice == "Adaptive Median Filter":
     filtered_image = adaptive_median_filter(resized_image, kernel_size=kernel_size, max_kernel_size=max_kernel_size)
     st.image(filtered_image, caption="Filtered Image - Adaptive Median Filter", width=512)
 
-elif filter_choice == "Hybrid Filter Part 1":
+elif filter_choice == "Hybrid Filter NAFSM+SRAD":
     filtered_image = hybrid_filter_p1(resized_image)
-    st.image(filtered_image, caption="Filtered Image - Hybrid Filter Part 1", width=512)
+    st.image(filtered_image, caption="Filtered Image - Hybrid Filter NAFSM+SRAD", width=512)
 
 elif filter_choice=="Gaussian Filter":
-    filtered_image=preprocess_image(resized_image)
+    kernel_size = st.slider("Set initial kernel size for Adaptive Median Filter", min_value=3, max_value=19, value=7, step=2)
+    filtered_image=gaussian_filter(resized_image, kernel_size=kernel_size)
     st.image(filtered_image, caption="Filtered Image - Gaussian Filter", width=512)
-else:
-    filtered_image = resized_image
-    st.write("No filter applied")
-
-    
-
-st.subheader("Preprocessing and Threshold Adjustment")
 
 
+st.subheader("Threshold Adjustment")
+
+# if st.button("Process with seleted filter"):
 with st.container():
     threshold = st.slider("Threshold Value", min_value=0, max_value=255, value=125)
-    _, thresholded_img = cv2.threshold(filtered_image, threshold, 255, cv2.THRESH_BINARY)
+    thresholded_img = segment_image(filtered_image, threshold)
     st.image(thresholded_img, caption=f"Thresholded Image at {threshold}", width=512, )
 
 if st.button("Process with Selected Threshold"):
-    segmented_img = segment_image(thresholded_img)
+    # segmented_img = segment_image(thresholded_img)
     
-    contours, convex_hull_img = apply_convex_hull(segmented_img)
+    contours, convex_hull_img = apply_convex_hull(thresholded_img)
     
     femur_length, point1, point2, marked_image = extract_femur_length(convex_hull_img, resized_image)
     marked_image = cv2.cvtColor(marked_image, cv2.COLOR_BGR2RGB)

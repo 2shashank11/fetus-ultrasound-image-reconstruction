@@ -40,28 +40,17 @@ def resizeImage(img):
     img_padded = cv2.copyMakeBorder(img_resized, top, bottom, left, right, cv2.BORDER_CONSTANT, value=[0, 0, 0])
     return img_padded
 
-def preprocess_image(image):
-    return cv2.GaussianBlur(image, (7, 7), 0)
-
-# def segment_image(image):
-#     gray_img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-#     _, binary_img = cv2.threshold(gray_img, 100, 255, cv2.THRESH_BINARY)
-#     return binary_img
+def gaussian_filter(image, kernel_size=7):
+    return cv2.GaussianBlur(image, (kernel_size, kernel_size), 0)
 
 
-def segment_image(image):
-    # Check if the image is already single-channel (grayscale/binary)
-    if len(image.shape) == 3:  # Image is colored (BGR)
+def segment_image(image, threshold):
+    if len(image.shape) == 3:
         gray_img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     else:
-        gray_img = image  # Image is already grayscale or binary
-
-    # Continue with segmentation logic
-    # (Add your specific segmentation steps here as required)
+        gray_img = image 
     
-    # Example: Assuming some thresholding or further processing follows
-    # _, segmented_img = cv2.threshold(gray_img, 127, 255, cv2.THRESH_BINARY)
-    segmented_img = gray_img  # Replace this with the actual segmentation step if different
+    _, segmented_img = cv2.threshold(gray_img, threshold, 255, cv2.THRESH_BINARY)
 
     return segmented_img
 
