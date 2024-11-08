@@ -27,8 +27,9 @@ filter_choice = st.selectbox("Choose a filter", ["Gaussian Filter","NAFSM Filter
 
 # Apply the selected filter
 if filter_choice == "NAFSM Filter":
-    threshold = st.slider("Set threshold for NAFSM Filter", min_value=0, max_value=50, value=25)
-    filtered_image = nafsm_filter(resized_image, threshold=threshold)
+    nafsm_threshold = st.slider("Set threshold for NAFSM Filter", min_value=0, max_value=255, value=25)
+    kernel_size = st.slider("Set initial kernel size for NAFSM Filter", min_value=3, max_value=25, value=7, step=2)
+    filtered_image = nafsm_filter(resized_image, threshold=nafsm_threshold, window_size=kernel_size)
     st.image(filtered_image, caption="Filtered Image - NAFSM Filter", width=512)
 
 elif filter_choice == "SRAD Filter":

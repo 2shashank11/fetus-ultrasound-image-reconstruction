@@ -103,18 +103,18 @@ def fetus_height(femur_length):
     fetus_height = 6.18 + 0.59*femur_length_in_cm*10
     return fetus_height, femur_length_in_cm
 
-def nafsm_filter(image, threshold=25):
+def nafsm_filter(image, threshold=25, window_size=3):
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     
     img_filtered = image.copy()
     rows, cols = img_filtered.shape
-    window_size = 3
+    offset = window_size // 2  
     
     # Traverse the image
-    for i in range(1, rows - 1):
-        for j in range(1, cols - 1):
-            window = img_filtered[i-1:i+2, j-1:j+2].flatten()
+    for i in range(offset, rows - offset):
+        for j in range(offset, cols - offset):
+            window = img_filtered[i-offset:i+offset+1, j-offset:j+offset+1].flatten()
             median_val = np.median(window)
             if abs(img_filtered[i, j] - median_val) > threshold:
                 img_filtered[i, j] = median_val
@@ -147,7 +147,7 @@ def wiener_filter(image, kernel_size=7):
 
     filtered_image = scipy_wiener(image, (kernel_size, kernel_size))
     
-    filtered_image = np.uint8(np.clip(filtered_image, 0, 255))
+    filtered_image = (np.clip(filtered_image, 0, 255)).astype(np.uint8) 
     
     return filtered_image
 
